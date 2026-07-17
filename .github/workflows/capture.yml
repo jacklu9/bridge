@@ -1,0 +1,62 @@
+name: 生成文章快照
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "公开新闻文章 URL"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: capture-article
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 抓取并生成快照
+        id: capture
+        env:
+          ARTICLE_URL: ${{ inputs.url }}
+        run: |
+          npm run capture 2>&1 | tee capture.log
+          article_id=$(sed -n 's/^ARTICLE_ID=//p' capture.log | tail -1)
+          test -n "$article_id"
+          echo "article_id=$article_id" >> "$GITHUB_OUTPUT"
+      - name: 保存快照
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/articles
+          git commit -m "Add article snapshot ${{ steps.capture.outputs.article_id }}"
+          git push
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: 发布 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: 输出分享地址
+        env:
+          ARTICLE_ID: ${{ steps.capture.outputs.article_id }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          echo "## 快照生成成功" >> "$GITHUB_STEP_SUMMARY"
+          echo "分享地址：${PAGE_URL}articles/${ARTICLE_ID}/" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,15 @@
+{
+  "name": "bridge-news-snapshot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node scripts/capture.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "jsdom": "^26.1.0",
+    "sanitize-html": "^2.17.0"
+  }
+}
